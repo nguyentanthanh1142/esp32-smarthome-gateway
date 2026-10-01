@@ -1,12 +1,16 @@
 #include "mqtt_handler.h"
 #include "hardware.h"
+#include <HTTPClient.h>
 #include <HTTPUpdate.h>
-#include <WiFiClientSecure.h> 
+#include <WiFiClientSecure.h>
+
+static String pendingOtaPayload = "";
+
 void initMQTT()
 {
     client.setServer(MQTT_SERVER, MQTT_PORT);
     client.setCallback(callback);
-    client.setKeepAlive(15); 
+    client.setKeepAlive(15);
     client.setBufferSize(1024);
 }
 
@@ -63,7 +67,7 @@ void reconnect()
     {
         lastMqttReconnectAttempt = now;
         Serial.print("Dang ket noi MQTT...");
-        
+
         if (client.connect(DEVICE_ID, MQTT_USER, MQTT_PASS, TOPIC_STATUS, 1, true, "offline"))
         {
             Serial.println("OK");
@@ -101,7 +105,7 @@ void subscribeAll()
     client.subscribe(TOPIC_DOOR_CTRL, 1);
     client.subscribe(TOPIC_RFID_CTRL, 1);
     client.subscribe(TOPIC_RFID_STATE, 1);
-    client.subscribe(TOPIC_OTA_UPDATE, 1); 
+    client.subscribe(TOPIC_OTA_UPDATE, 1);
     Serial.println("Subscribed to all topics.");
 }
 
@@ -133,12 +137,13 @@ void callback(char *topic, byte *payload, unsigned int length)
         raw += (char)payload[i];
     if (length == 0)
         return;
-        
+
     Serial.printf(">>> RX [%s] raw='%s'\n", t.c_str(), raw.c_str());
 
+    // OTA: chỉ lưu lệnh, KHÔNG tải ở đây (đang nằm trong client.loop())
     if (t == TOPIC_OTA_UPDATE)
     {
-        checkForOTAUpdate(raw);
+        pendingOtaPayload = raw;
         return;
     }
 
@@ -202,14 +207,14 @@ void sendDiscoveryConfig(const char *component, const char *object_id, String co
 {
     if (!client.connected())
         return;
-    char topic[192]; 
+    char topic[192];
     snprintf(topic, sizeof(topic), "homeassistant/%s/%s/%s/config", component, DEVICE_ID, object_id);
     String finalJson = "{\"unique_id\":\"" + String(DEVICE_ID) + "_" + String(object_id) + "\"," + configJson.substring(1);
 
     client.publish(topic, finalJson.c_str(), true);
     Serial.printf("[DISCOVERY] Sent: %s\n", object_id);
 
-    client.loop(); 
+    client.loop();
 }
 
 void setupMQTTDiscovery()
@@ -246,6 +251,15 @@ void mqttHeartbeat()
     }
 }
 
+void handleOTA()
+{
+    if (pendingOtaPayload.length() == 0)
+        return;
+    String p = pendingOtaPayload;
+    pendingOtaPayload = "";
+    checkForOTAUpdate(p);
+}
+
 void checkForOTAUpdate(String payload)
 {
     JsonDocument doc;
@@ -253,7 +267,7 @@ void checkForOTAUpdate(String payload)
 
     if (error)
     {
-        Serial.println(">>> OTA: Lỗi parse JSON payload!");
+        Serial.println(">>> OTA: Loi parse JSON payload!");
         return;
     }
 
@@ -262,24 +276,28 @@ void checkForOTAUpdate(String payload)
 
     if (url.length() > 0)
     {
-        Serial.printf(">>> OTA: Nhận lệnh cập nhật! Version: %s\n", version.c_str());
-        Serial.println(">>> OTA: Đang tải Firmware... TUYỆT ĐỐI KHÔNG NGẮT ĐIỆN!");
+        Serial.printf(">>> OTA: Nhan lenh cap nhat! Version: %s\n", version.c_str());
+        Serial.println(">>> OTA: Dang tai firmware... TUYET DOI KHONG NGAT DIEN!");
 
         WiFiClientSecure clientSecure;
         clientSecure.setInsecure();
+
+        // GitHub Releases trả về redirect 302 -> phải cho phép follow redirect
+        httpUpdate.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+        httpUpdate.rebootOnUpdate(true);
+
         t_httpUpdate_return ret = httpUpdate.update(clientSecure, url);
 
         switch (ret)
         {
         case HTTP_UPDATE_FAILED:
-            Serial.printf(">>> OTA: Cập nhật thất bại (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
+            Serial.printf(">>> OTA: Cap nhat that bai (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
             break;
         case HTTP_UPDATE_NO_UPDATES:
-            Serial.println(">>> OTA: Không có bản cập nhật mới.");
+            Serial.println(">>> OTA: Khong co ban cap nhat moi.");
             break;
         case HTTP_UPDATE_OK:
-            Serial.println(">>> OTA: Cập nhật thành công! Đang khởi động lại...");
-            delay(1000);
+            Serial.println(">>> OTA: Cap nhat thanh cong! Dang khoi dong lai...");
             break;
         }
     }

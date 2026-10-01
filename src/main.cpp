@@ -82,7 +82,6 @@ void loop()
   handleMQ2();
   handleDoorSensor();
 
-  // NETWORK & MQTT (Non-blocking)
   if (WiFi.status() == WL_CONNECTED)
   {
     if (!client.connected())
@@ -91,6 +90,7 @@ void loop()
     }
     client.loop();
     mqttHeartbeat();
+    handleOTA(); 
   }
   else
   {

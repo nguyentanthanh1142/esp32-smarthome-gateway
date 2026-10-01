@@ -14,4 +14,5 @@ void callback(char* topic, byte* payload, unsigned int length);
 void addEcho(const char* topic, bool on);
 bool consumeEcho(const String& topic, bool on);
 void checkForOTAUpdate(String payload);
+void handleOTA();
 #endif
