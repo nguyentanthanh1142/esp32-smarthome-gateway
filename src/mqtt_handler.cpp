@@ -1,11 +1,12 @@
 #include "mqtt_handler.h"
 #include "hardware.h"
-
+#include <HTTPUpdate.h>
+#include <WiFiClientSecure.h> 
 void initMQTT()
 {
     client.setServer(MQTT_SERVER, MQTT_PORT);
     client.setCallback(callback);
-    client.setKeepAlive(15);
+    client.setKeepAlive(15); 
     client.setBufferSize(1024);
 }
 
@@ -62,6 +63,7 @@ void reconnect()
     {
         lastMqttReconnectAttempt = now;
         Serial.print("Dang ket noi MQTT...");
+        
         if (client.connect(DEVICE_ID, MQTT_USER, MQTT_PASS, TOPIC_STATUS, 1, true, "offline"))
         {
             Serial.println("OK");
@@ -99,7 +101,7 @@ void subscribeAll()
     client.subscribe(TOPIC_DOOR_CTRL, 1);
     client.subscribe(TOPIC_RFID_CTRL, 1);
     client.subscribe(TOPIC_RFID_STATE, 1);
-    client.subscribe(TOPIC_OTA_UPDATE, 1);
+    client.subscribe(TOPIC_OTA_UPDATE, 1); 
     Serial.println("Subscribed to all topics.");
 }
 
@@ -131,8 +133,16 @@ void callback(char *topic, byte *payload, unsigned int length)
         raw += (char)payload[i];
     if (length == 0)
         return;
+        
+    Serial.printf(">>> RX [%s] raw='%s'\n", t.c_str(), raw.c_str());
+
+    if (t == TOPIC_OTA_UPDATE)
+    {
+        checkForOTAUpdate(raw);
+        return;
+    }
+
     String cmd = normalizeCmd(raw);
-    Serial.printf(">>> RX [%s] raw='%s' -> cmd='%s'\n", t.c_str(), raw.c_str(), cmd.c_str());
 
     for (int i = 0; i < RELAY_COUNT; i++)
     {
@@ -186,32 +196,26 @@ void callback(char *topic, byte *payload, unsigned int length)
         if (on != rfidEnabled)
             setRfid(on);
     }
-    else if (t == TOPIC_OTA_UPDATE)
-    {
-        String rawPayload = raw; 
-        checkForOTAUpdate(rawPayload);
-        return;
-    }
 }
 
 void sendDiscoveryConfig(const char *component, const char *object_id, String configJson)
 {
     if (!client.connected())
         return;
-    char topic[192];
+    char topic[192]; 
     snprintf(topic, sizeof(topic), "homeassistant/%s/%s/%s/config", component, DEVICE_ID, object_id);
     String finalJson = "{\"unique_id\":\"" + String(DEVICE_ID) + "_" + String(object_id) + "\"," + configJson.substring(1);
 
     client.publish(topic, finalJson.c_str(), true);
     Serial.printf("[DISCOVERY] Sent: %s\n", object_id);
 
-    client.loop();
+    client.loop(); 
 }
 
 void setupMQTTDiscovery()
 {
     Serial.println("[MQTT] Gui cau hinh Auto-Discovery...");
-    String deviceInfo = "\"device\":{\"identifiers\":[\"" + String(DEVICE_ID) + "\"],\"name\":\"" + String(DEVICE_NAME) + "\",\"manufacturer\":\"Espressif\",\"model\":\"ESP32 DevKit\",\"sw_version\":\"2.2.0\"}";
+    String deviceInfo = "\"device\":{\"identifiers\":[\"" + String(DEVICE_ID) + "\"],\"name\":\"" + String(DEVICE_NAME) + "\",\"manufacturer\":\"Espressif\",\"model\":\"ESP32 DevKit\",\"sw_version\":\"2.3.0\"}";
     String avail = "\"availability_topic\":\"" + String(TOPIC_STATUS) + "\",\"payload_available\":\"online\",\"payload_not_available\":\"offline\"";
 
     sendDiscoveryConfig("light", "den", "{\"name\":\"Den Phong Khach\",\"state_topic\":\"" + String(relayDenPK.stateTopic) + "\",\"command_topic\":\"" + String(relayDenPK.ctrlTopic) + "\",\"payload_on\":\"ON\",\"payload_off\":\"OFF\",\"icon\":\"mdi:sofa\"," + avail + "," + deviceInfo + "}");
@@ -229,6 +233,7 @@ void setupMQTTDiscovery()
     sendDiscoveryConfig("switch", "rfid_enable", "{\"name\":\"Dau Doc The RFID\",\"state_topic\":\"" + String(TOPIC_RFID_STATE) + "\",\"command_topic\":\"" + String(TOPIC_RFID_CTRL) + "\",\"payload_on\":\"ON\",\"payload_off\":\"OFF\",\"icon\":\"mdi:credit-card-wireless\"," + avail + "," + deviceInfo + "}");
     Serial.println("[MQTT] Hoan tat Auto-Discovery!");
 }
+
 void mqttHeartbeat()
 {
     static unsigned long last = 0;
@@ -240,6 +245,7 @@ void mqttHeartbeat()
         client.publish(TOPIC_STATUS, "online", true);
     }
 }
+
 void checkForOTAUpdate(String payload)
 {
     JsonDocument doc;
@@ -259,7 +265,9 @@ void checkForOTAUpdate(String payload)
         Serial.printf(">>> OTA: Nhận lệnh cập nhật! Version: %s\n", version.c_str());
         Serial.println(">>> OTA: Đang tải Firmware... TUYỆT ĐỐI KHÔNG NGẮT ĐIỆN!");
 
-        t_httpUpdate_return ret = httpUpdate.update(espClient, url);
+        WiFiClientSecure clientSecure;
+        clientSecure.setInsecure();
+        t_httpUpdate_return ret = httpUpdate.update(clientSecure, url);
 
         switch (ret)
         {
