@@ -35,7 +35,7 @@ jobs:
       - name: Build Firmware
         run: pio run
 
-      - name: Create GitHub Release & Upload Firmware
+      - name: Create GitHub Release & Upload Firmware 
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
