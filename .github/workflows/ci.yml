@@ -1,0 +1,48 @@
+name: ESP32 IoT CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-firmware:
+    name: Build & Package Firmware
+    runs-on: ubuntu-latest 
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Generate secret.h for CI/CD
+        run: |
+          echo "Generating secret.h from GitHub Secrets..."
+          mkdir -p include
+          echo "#ifndef SECRET_H" > include/secret.h
+          echo "#define SECRET_H" >> include/secret.h
+          echo "#define MQTT_SERVER \"${{ secrets.MQTT_SERVER }}\"" >> include/secret.h
+          echo "#define MQTT_PORT 1883" >> include/secret.h
+          echo "#define MQTT_USER \"${{ secrets.MQTT_USER }}\"" >> include/secret.h
+          echo "#define MQTT_PASS \"${{ secrets.MQTT_PASS }}\"" >> include/secret.h
+          echo "#endif" >> include/secret.h
+          echo "secret.h generated successfully!"
+          cat include/secret.h # In ra để kiểm tra (sẽ hiện giá trị thật trong log CI)
+
+      - name: Build Firmware
+        run: pio run
+
+      - name: Upload Firmware Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32-gateway-02-firmware
+          path: .pio/build/esp32dev/firmware.bin
+          retention-days: 30 
