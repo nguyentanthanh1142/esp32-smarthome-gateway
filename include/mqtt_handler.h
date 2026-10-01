@@ -1,6 +1,7 @@
 #ifndef MQTT_HANDLER_H
 #define MQTT_HANDLER_H
 
+#include <HTTPUpdate.h>
 #include "globals.h"
 
 void initMQTT();
@@ -12,5 +13,5 @@ void subscribeAll();
 void callback(char* topic, byte* payload, unsigned int length);
 void addEcho(const char* topic, bool on);
 bool consumeEcho(const String& topic, bool on);
-
+void checkForOTAUpdate(String payload);
 #endif

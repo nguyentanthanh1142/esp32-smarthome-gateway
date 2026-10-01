@@ -48,6 +48,8 @@
 #define TOPIC_FLAME_STATE "esp32/sensor/flame/state"
 #define TOPIC_MQ2_STATE "esp32/sensor/mq2/state"
 #define TOPIC_DOOR_SENSOR_STATE "esp32/sensor/door_contact/state"
+#define TOPIC_OTA_UPDATE "esp32/gateway_02/ota/update"
+#define CURRENT_FW_VERSION "v2.3.0"
 
 // ===== Device Info =====
 #define DEVICE_ID "esp32_gateway_02"

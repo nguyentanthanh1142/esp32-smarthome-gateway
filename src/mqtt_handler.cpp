@@ -5,7 +5,7 @@ void initMQTT()
 {
     client.setServer(MQTT_SERVER, MQTT_PORT);
     client.setCallback(callback);
-    client.setKeepAlive(15);       
+    client.setKeepAlive(15);
     client.setBufferSize(1024);
 }
 
@@ -62,7 +62,7 @@ void reconnect()
     {
         lastMqttReconnectAttempt = now;
         Serial.print("Dang ket noi MQTT...");
-       if (client.connect(DEVICE_ID, MQTT_USER, MQTT_PASS, TOPIC_STATUS, 1, true, "offline"))
+        if (client.connect(DEVICE_ID, MQTT_USER, MQTT_PASS, TOPIC_STATUS, 1, true, "offline"))
         {
             Serial.println("OK");
             echoCount = 0;
@@ -78,7 +78,7 @@ void reconnect()
                 pubState(relays[i].stateTopic, relays[i].on);
             pub(TOPIC_DOOR_STATE, (doorState == IDLE_OPEN || doorState == MOVING_OPEN) ? "OPEN" : "CLOSED");
             pubState(TOPIC_RFID_STATE, rfidEnabled);
-            
+
             Serial.println(">>> MQTT Reconnected Successfully!");
         }
         else
@@ -99,6 +99,7 @@ void subscribeAll()
     client.subscribe(TOPIC_DOOR_CTRL, 1);
     client.subscribe(TOPIC_RFID_CTRL, 1);
     client.subscribe(TOPIC_RFID_STATE, 1);
+    client.subscribe(TOPIC_OTA_UPDATE, 1);
     Serial.println("Subscribed to all topics.");
 }
 
@@ -185,21 +186,26 @@ void callback(char *topic, byte *payload, unsigned int length)
         if (on != rfidEnabled)
             setRfid(on);
     }
+    else if (t == TOPIC_OTA_UPDATE)
+    {
+        String rawPayload = raw; 
+        checkForOTAUpdate(rawPayload);
+        return;
+    }
 }
 
 void sendDiscoveryConfig(const char *component, const char *object_id, String configJson)
 {
     if (!client.connected())
         return;
-    char topic[192]; 
+    char topic[192];
     snprintf(topic, sizeof(topic), "homeassistant/%s/%s/%s/config", component, DEVICE_ID, object_id);
     String finalJson = "{\"unique_id\":\"" + String(DEVICE_ID) + "_" + String(object_id) + "\"," + configJson.substring(1);
-    
+
     client.publish(topic, finalJson.c_str(), true);
     Serial.printf("[DISCOVERY] Sent: %s\n", object_id);
-    
+
     client.loop();
-    
 }
 
 void setupMQTTDiscovery()
@@ -223,11 +229,50 @@ void setupMQTTDiscovery()
     sendDiscoveryConfig("switch", "rfid_enable", "{\"name\":\"Dau Doc The RFID\",\"state_topic\":\"" + String(TOPIC_RFID_STATE) + "\",\"command_topic\":\"" + String(TOPIC_RFID_CTRL) + "\",\"payload_on\":\"ON\",\"payload_off\":\"OFF\",\"icon\":\"mdi:credit-card-wireless\"," + avail + "," + deviceInfo + "}");
     Serial.println("[MQTT] Hoan tat Auto-Discovery!");
 }
-void mqttHeartbeat() {
+void mqttHeartbeat()
+{
     static unsigned long last = 0;
-    if (!client.connected()) return;
-    if (millis() - last >= MQTT_STATUS_HEARTBEAT) {
+    if (!client.connected())
+        return;
+    if (millis() - last >= MQTT_STATUS_HEARTBEAT)
+    {
         last = millis();
         client.publish(TOPIC_STATUS, "online", true);
+    }
+}
+void checkForOTAUpdate(String payload)
+{
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, payload);
+
+    if (error)
+    {
+        Serial.println(">>> OTA: Lỗi parse JSON payload!");
+        return;
+    }
+
+    String url = doc["url"].as<String>();
+    String version = doc["version"].as<String>();
+
+    if (url.length() > 0)
+    {
+        Serial.printf(">>> OTA: Nhận lệnh cập nhật! Version: %s\n", version.c_str());
+        Serial.println(">>> OTA: Đang tải Firmware... TUYỆT ĐỐI KHÔNG NGẮT ĐIỆN!");
+
+        t_httpUpdate_return ret = httpUpdate.update(espClient, url);
+
+        switch (ret)
+        {
+        case HTTP_UPDATE_FAILED:
+            Serial.printf(">>> OTA: Cập nhật thất bại (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
+            break;
+        case HTTP_UPDATE_NO_UPDATES:
+            Serial.println(">>> OTA: Không có bản cập nhật mới.");
+            break;
+        case HTTP_UPDATE_OK:
+            Serial.println(">>> OTA: Cập nhật thành công! Đang khởi động lại...");
+            delay(1000);
+            break;
+        }
     }
 }

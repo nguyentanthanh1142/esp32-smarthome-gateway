@@ -1,15 +1,13 @@
-name: ESP32 IoT CI/CD Pipeline
+name: ESP32 IoT CI/CD & MQTT OTA Pipeline
 
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
 
 jobs:
-  build-firmware:
-    name: Build & Package Firmware
-    runs-on: ubuntu-latest 
+  build-and-deploy:
+    name: Build, Release & Trigger OTA
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
@@ -20,29 +18,60 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install PlatformIO
-        run: pip install platformio
+      - name: Install PlatformIO & Paho-MQTT
+        run: pip install platformio paho-mqtt
 
-      - name: Generate secret.h for CI/CD
+      - name: Generate secret.h from GitHub Secrets
         run: |
-          echo "Generating secret.h from GitHub Secrets..."
-          mkdir -p include
-          echo "#ifndef SECRET_H" > include/secret.h
-          echo "#define SECRET_H" >> include/secret.h
-          echo "#define MQTT_SERVER \"${{ secrets.MQTT_SERVER }}\"" >> include/secret.h
-          echo "#define MQTT_PORT 1883" >> include/secret.h
-          echo "#define MQTT_USER \"${{ secrets.MQTT_USER }}\"" >> include/secret.h
-          echo "#define MQTT_PASS \"${{ secrets.MQTT_PASS }}\"" >> include/secret.h
-          echo "#endif" >> include/secret.h
-          echo "secret.h generated successfully!"
-          cat include/secret.h # In ra để kiểm tra (sẽ hiện giá trị thật trong log CI)
+          echo '#ifndef SECRET_H' > include/secret.h
+          echo '#define SECRET_H' >> include/secret.h
+          echo '#define MQTT_SERVER "${{ secrets.MQTT_SERVER }}"' >> include/secret.h
+          echo '#define MQTT_PORT 1883' >> include/secret.h
+          echo '#define MQTT_USER "${{ secrets.MQTT_USER }}"' >> include/secret.h
+          echo '#define MQTT_PASS "${{ secrets.MQTT_PASS }}"' >> include/secret.h
+          echo '#endif' >> include/secret.h
 
       - name: Build Firmware
         run: pio run
 
-      - name: Upload Firmware Artifact
-        uses: actions/upload-artifact@v4
+      - name: Create GitHub Release & Upload Firmware
+        id: create_release
+        uses: softprops/action-gh-release@v1
         with:
-          name: esp32-gateway-02-firmware
-          path: .pio/build/esp32dev/firmware.bin
-          retention-days: 30 
+          tag_name: v1.0.${{ github.run_number }}
+          name: Release v1.0.${{ github.run_number }}
+          body: "Tự động build từ commit ${{ github.sha }}"
+          draft: false
+          prerelease: false
+          files: .pio/build/esp32dev/firmware.bin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Trigger MQTT OTA Update
+        if: success() 
+        run: |
+          python3 -c "
+          import paho.mqtt.publish as publish
+          import json
+          
+          # Tạo URL tải xuống từ GitHub Release (Yêu cầu Repo Public)
+          repo = '${{ github.repository }}'
+          tag = 'v1.0.${{ github.run_number }}'
+          url = f'https://github.com/{repo}/releases/download/{tag}/firmware.bin'
+          
+          payload = json.dumps({
+              'url': url,
+              'version': tag
+          })
+          
+          print(f'Gửi lệnh OTA: {payload}')
+          
+          publish.single(
+              'esp32/gateway_02/ota/update', 
+              payload, 
+              hostname='${{ secrets.MQTT_SERVER }}', 
+              port=1883, 
+              auth={'username': '${{ secrets.MQTT_USER }}', 'password': '${{ secrets.MQTT_PASS }}'}
+          )
+          print('Đã gửi lệnh MQTT thành công!')
+          "
