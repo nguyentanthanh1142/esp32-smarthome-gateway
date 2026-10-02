@@ -1,6 +1,6 @@
 #ifndef CONFIG_H
 #define CONFIG_H
-#include "secret.h" 
+#include "secret.h"
 
 // ===== Cấu hình phần cứng =====
 #define RELAY_DEN_PK_PIN 25
@@ -13,6 +13,8 @@
 #define FLAME_PIN 35
 #define MQ2_PIN 39
 #define DOOR_SENSOR_PIN 14
+#define RELAY_DEN_NGU_PIN 12
+#define BUZZER_PIN 13
 
 #define RELAY_ACTIVE_LOW 0
 #define RELAY_ON_LEVEL (RELAY_ACTIVE_LOW ? LOW : HIGH)
@@ -33,7 +35,6 @@
 #define ECHO_TIMEOUT_MS 3000
 #define MAX_ECHO 8
 
-
 // ===== Topics =====
 #define TOPIC_STATUS "esp32/gateway_02/status"
 #define MQTT_STATUS_HEARTBEAT 15000
@@ -49,10 +50,15 @@
 #define TOPIC_MQ2_STATE "esp32/sensor/mq2/state"
 #define TOPIC_DOOR_SENSOR_STATE "esp32/sensor/door_contact/state"
 #define TOPIC_OTA_UPDATE "esp32/gateway_02/ota/update"
+#define TOPIC_RELAY_DEN_NGU_STATE "esp32/relay/den_ngu/state"
+#define TOPIC_RELAY_DEN_NGU_CTRL "esp32/relay/den_ngu/control"
+#define TOPIC_BUZZER_STATE "esp32/relay/buzzer/state"
+#define TOPIC_BUZZER_CTRL "esp32/relay/buzzer/control"
+
 #ifdef FW_VERSION
-    #define CURRENT_FW_VERSION FW_VERSION
+#define CURRENT_FW_VERSION FW_VERSION
 #else
-    #define CURRENT_FW_VERSION "v2.3.0-local" 
+#define CURRENT_FW_VERSION "v2.3.0-local"
 #endif
 
 // ===== Device Info =====
@@ -60,8 +66,8 @@
 #define DEVICE_NAME "ESP32 Gateway 02"
 
 // ===== Configuration Servo 360 =====
-#define SERVO_STOP_US 1500UL  
-#define SERVO_OPEN_US 1000UL  
-#define SERVO_CLOSE_US 2000UL 
-#define DOOR_SPIN_MS 400UL    
+#define SERVO_STOP_US 1500UL
+#define SERVO_OPEN_US 1000UL
+#define SERVO_CLOSE_US 2000UL
+#define DOOR_SPIN_MS 400UL
 #endif

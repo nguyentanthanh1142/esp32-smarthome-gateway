@@ -236,6 +236,9 @@ void setupMQTTDiscovery()
     sendDiscoveryConfig("sensor", "rfid_uid", "{\"name\":\"The RFID Vua Quet\",\"state_topic\":\"" + String(TOPIC_EVENT) + "\",\"value_template\":\"{{ value_json.uid }}\",\"icon\":\"mdi:card-account-details\"," + avail + "," + deviceInfo + "}");
     sendDiscoveryConfig("sensor", "rfid_access", "{\"name\":\"Ket Qua Quet The\",\"state_topic\":\"" + String(TOPIC_EVENT) + "\",\"value_template\":\"{{ value_json.access }}\",\"icon\":\"mdi:shield-account\"," + avail + "," + deviceInfo + "}");
     sendDiscoveryConfig("switch", "rfid_enable", "{\"name\":\"Dau Doc The RFID\",\"state_topic\":\"" + String(TOPIC_RFID_STATE) + "\",\"command_topic\":\"" + String(TOPIC_RFID_CTRL) + "\",\"payload_on\":\"ON\",\"payload_off\":\"OFF\",\"icon\":\"mdi:credit-card-wireless\"," + avail + "," + deviceInfo + "}");
+    sendDiscoveryConfig("light", "den_ngu", "{\"name\":\"Den Phong Ngu\",\"state_topic\":\"" + String(TOPIC_RELAY_DEN_NGU_STATE) + "\",\"command_topic\":\"" + String(TOPIC_RELAY_DEN_NGU_CTRL) + "\",\"payload_on\":\"ON\",\"payload_off\":\"OFF\",\"icon\":\"mdi:bed\"," + avail + "," + deviceInfo + "}");
+    sendDiscoveryConfig("switch", "buzzer", "{\"name\":\"Buzzer Bao Dong\",\"state_topic\":\"" + String(TOPIC_BUZZER_STATE) + "\",\"command_topic\":\"" + String(TOPIC_BUZZER_CTRL) + "\",\"payload_on\":\"ON\",\"payload_off\":\"OFF\",\"icon\":\"mdi:alarm-bell\"," + avail + "," + deviceInfo + "}");
+
     Serial.println("[MQTT] Hoan tat Auto-Discovery!");
 }
 

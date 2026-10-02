@@ -29,7 +29,9 @@ const char *ALLOWED_UIDS[] = {nullptr};
 
 RelayChannel relays[] = {
     {"den_pk", RELAY_DEN_PK_PIN, "esp32/relay/den/state", "esp32/relay/den/control", false, false, 0},
-    {"quat", RELAY_QUAT_PIN, "esp32/relay/quat/state", "esp32/relay/quat/control", false, false, 0}};
+    {"quat", RELAY_QUAT_PIN, "esp32/relay/quat/state", "esp32/relay/quat/control", false, false, 0},
+    {"den_ngu", RELAY_DEN_NGU_PIN, TOPIC_RELAY_DEN_NGU_STATE, TOPIC_RELAY_DEN_NGU_CTRL, false, false, 0},
+    {"buzzer", BUZZER_PIN, TOPIC_BUZZER_STATE, TOPIC_BUZZER_CTRL, false, false, 0}};
 const int RELAY_COUNT = sizeof(relays) / sizeof(relays[0]);
 RelayChannel &relayDenPK = relays[0];
 RelayChannel &relayQuat = relays[1];
@@ -90,7 +92,7 @@ void loop()
     }
     client.loop();
     mqttHeartbeat();
-    handleOTA(); 
+    handleOTA();
   }
   else
   {
