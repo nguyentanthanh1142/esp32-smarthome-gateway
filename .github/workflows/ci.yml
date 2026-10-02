@@ -49,6 +49,7 @@ jobs:
           files: .pio/build/esp32dev/firmware.bin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FW_VERSION: "v1.0.${{ github.run_number }}" 
 
       - name: Trigger MQTT OTA Update
         if: success() 
